@@ -411,7 +411,9 @@ function handleDownloadPDF() {
     filename: filename,
     image: { type: "jpeg", quality: 0.98 },
     html2canvas: {
-      scale: 2,
+      // use devicePixelRatio but avoid excessive scaling that can push content
+      // slightly over one page and create a blank extra page
+      scale: Math.min(1.5, window.devicePixelRatio || 1),
       useCORS: true,
       backgroundColor: "#111111"
     },
@@ -421,6 +423,9 @@ function handleDownloadPDF() {
       orientation: "portrait"
     }
   };
+
+  // Improve page-break handling to avoid an empty final page
+  opt.pagebreak = { mode: ["css", "legacy"] };
 
   if (window.html2pdf) {
     window.html2pdf().set(opt).from(element).save().then(() => {

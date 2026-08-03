@@ -463,7 +463,7 @@ textarea {
   border-radius: 4px;
   box-shadow: var(--shadow-doc);
   font-family: var(--font-sans);
-  box-sizing: border-border;
+  box-sizing: border-box;
   transform-origin: top center;
   transition: transform 0.2s ease;
   position: relative;

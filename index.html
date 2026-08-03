@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Generator | Dark Professional Template</title>
+  <meta name="description" content="Create, edit, and download professional dark-themed invoices with live preview and instant PDF export.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-icon">
+          <i data-lucide="receipt"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Invoice Generator</h1>
+          <span class="badge">Dark PDF Studio</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="view-toggle-group" id="view-toggle-group">
+          <button id="view-editor-btn" class="btn btn-secondary active" title="Show Editor">
+            <i data-lucide="edit-3"></i> Editor
+          </button>
+          <button id="view-preview-btn" class="btn btn-secondary" title="Show Preview">
+            <i data-lucide="eye"></i> Preview
+          </button>
+        </div>
+        <button id="reset-sample-btn" class="btn btn-secondary" title="Reset to initial sample PDF data">
+          <i data-lucide="rotate-ccw"></i> Reset Sample
+        </button>
+        <button id="print-btn" class="btn btn-secondary" title="Print document">
+          <i data-lucide="printer"></i> Print
+        </button>
+        <button id="download-pdf-btn" class="btn btn-primary" title="Export as PDF">
+          <i data-lucide="download"></i> Download PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="workspace">
+      <!-- LEFT PANE: FORM EDITOR -->
+      <aside class="editor-pane">
+        <div class="pane-header">
+          <h2><i data-lucide="sliders"></i> Invoice Settings</h2>
+          <span class="hint">Live Sync Enabled</span>
+        </div>
+
+        <div class="form-scroll-area">
+          <!-- SECTION 1: SELLER / ISSUER DETAILS -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="user-check"></i> Seller / Issuer Info
+            </summary>
+            <div class="section-body">
+              <div class="form-group">
+                <label for="seller-name">Full Name / Organization</label>
+                <input type="text" id="seller-name" placeholder="e.g. ALEX RIVERA">
+              </div>
+              <div class="form-group">
+                <label for="seller-address">Address (Line 1 & 2)</label>
+                <textarea id="seller-address" rows="2" placeholder="e.g. 123 Innovation Way, Tech City, CA 94016"></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="seller-email">Email Address</label>
+                  <input type="email" id="seller-email" placeholder="e.g. alex.rivera@example.com">
+                </div>
+                <div class="form-group">
+                  <label for="seller-phone">Phone Number</label>
+                  <input type="text" id="seller-phone" placeholder="e.g. +1 (555) 019-2834">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="qr-label">Payment Label</label>
+                  <input type="text" id="qr-label" value="Pay online">
+                </div>
+                <div class="form-group">
+                  <label for="portfolio-url">Footer Link / Portfolio</label>
+                  <input type="text" id="portfolio-url" placeholder="e.g. iamsohit.framer.ai">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="qr-value">UPI / Payment Link for QR</label>
+                <input type="text" id="qr-value" placeholder="e.g. https://pay.example.com/alexrivera">
+              </div>
+              <div class="form-group">
+                <label for="qr-image-upload">Upload Custom QR Code (Image)</label>
+                <input type="file" id="qr-image-upload" accept="image/*">
+                <button id="remove-qr-image-btn" class="btn btn-danger btn-block" style="display:none; font-size:0.75rem; margin-top:4px;">
+                  <i data-lucide="x"></i> Remove Uploaded QR Image
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <!-- SECTION 2: CLIENT / BILLED TO DETAILS -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="building"></i> Client / Billed To
+            </summary>
+            <div class="section-body">
+              <div class="form-group">
+                <label for="client-name">Company / Client Name</label>
+                <input type="text" id="client-name" placeholder="e.g. Acme Global Solutions LLC">
+              </div>
+              <div class="form-group">
+                <label for="client-address">Client Address</label>
+                <textarea id="client-address" rows="2" placeholder="e.g. 742 Evergreen Terrace, Metropolis, NY 10001"></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="client-email">Client Email</label>
+                  <input type="text" id="client-email" placeholder="e.g. billing@acmeglobal.example">
+                </div>
+                <div class="form-group">
+                  <label for="client-phone">Client Phone(s)</label>
+                  <input type="text" id="client-phone" placeholder="e.g. +1 (555) 012-3456">
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- SECTION 3: INVOICE METADATA -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="file-text"></i> Invoice Details
+            </summary>
+            <div class="section-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoice-number">Invoice Number</label>
+                  <input type="text" id="invoice-number" placeholder="e.g. #INV-00102">
+                </div>
+                <div class="form-group">
+                  <label for="invoice-date">Invoice Date</label>
+                  <input type="text" id="invoice-date" placeholder="e.g. 03 Aug 2026">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="currency-symbol">Currency Symbol</label>
+                  <input type="text" id="currency-symbol" value="$">
+                </div>
+                <div class="form-group">
+                  <label for="currency-code">Currency Code</label>
+                  <input type="text" id="currency-code" value="USD">
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- SECTION 4: LINE ITEMS -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="list"></i> Items & Services
+            </summary>
+            <div class="section-body">
+              <div id="items-editor-list" class="items-editor-list">
+                <!-- Dynamic Item Form Cards inserted by JS -->
+              </div>
+              <button id="add-item-btn" class="btn btn-secondary btn-block">
+                <i data-lucide="plus"></i> Add Item
+              </button>
+            </div>
+          </details>
+
+          <!-- SECTION 5: CHARGES & SUMMARY -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="calculator"></i> Charges & Taxes
+            </summary>
+            <div class="section-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="gst-amount">GST Total (Custom or Auto)</label>
+                  <input type="number" step="0.01" id="gst-amount" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                  <label for="revision-charges">Revision Charges</label>
+                  <input type="number" step="0.01" id="revision-charges" placeholder="0.00">
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </aside>
+
+      <!-- RIGHT PANE: PREVIEW ARENA -->
+      <section class="preview-pane">
+        <div class="preview-toolbar">
+          <div class="toolbar-info">
+            <i data-lucide="eye"></i> Live Document Preview
+          </div>
+          <div class="toolbar-controls">
+            <button id="zoom-out" class="icon-btn" title="Zoom Out"><i data-lucide="zoom-out"></i></button>
+            <span id="zoom-level">100%</span>
+            <button id="zoom-in" class="icon-btn" title="Zoom In"><i data-lucide="zoom-in"></i></button>
+            <button id="zoom-reset" class="icon-btn" title="Reset Zoom"><i data-lucide="maximize-2"></i></button>
+          </div>
+        </div>
+
+        <div class="preview-viewport">
+          <!-- INVOICE DOCUMENT TO BE CAPTURED / PRINTED -->
+          <div id="invoice-document" class="invoice-document dark-theme">
+            
+            <!-- DOCUMENT TOP BAR: QR & SELLER INFO -->
+            <div class="doc-header">
+              <div class="qr-container">
+                <div class="qr-label" id="doc-qr-label">Pay online</div>
+                <div id="doc-qr-code" class="qr-code-box"></div>
+              </div>
+              <div class="seller-details">
+                <div class="seller-name" id="doc-seller-name">SOHIT KUMAR</div>
+                <div class="seller-address" id="doc-seller-address">
+                  Abhay khand -1 , Indirapuram,<br>
+                  Ghaziabad, Uttar Pradesh 201020
+                </div>
+                <div class="seller-email" id="doc-seller-email">connect.sohit@gmail.com</div>
+                <div class="seller-phone" id="doc-seller-phone"></div>
+              </div>
+            </div>
+
+            <!-- DOCUMENT TITLE & NUMBER -->
+            <div class="doc-title-row">
+              <h1 class="doc-title">Invoice</h1>
+              <span class="doc-number" id="doc-invoice-number">#00026</span>
+            </div>
+
+            <!-- CLIENT & METADATA ROW -->
+            <div class="doc-meta-row">
+              <div class="client-details">
+                <div class="client-name" id="doc-client-name">Prime Tools & Equipments Pvt. Ltd.</div>
+                <div class="client-address" id="doc-client-address">
+                  B-7/A, Acharya Niketan,Mayur Vihar Phase<br>
+                  1, New Delhi 110091
+                </div>
+                <div class="client-email" id="doc-client-email">info@primetoolsindia.com</div>
+                <div class="client-phone" id="doc-client-phone">+91-9310015460, 9871915460</div>
+              </div>
+              <div class="invoice-meta">
+                <div class="meta-label">INVOICE DATE:</div>
+                <div class="meta-value" id="doc-invoice-date">03 Aug 2026</div>
+              </div>
+            </div>
+
+            <!-- TABLE OF ITEMS -->
+            <div class="doc-table-container">
+              <table class="doc-table">
+                <thead>
+                  <tr>
+                    <th class="col-desc">Description</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-price">Price</th>
+                    <th class="col-gst">GST</th>
+                    <th class="col-amount">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="doc-items-body">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- SUMMARY BLOCK -->
+            <div class="doc-summary-container">
+              <div class="summary-table">
+                <div class="summary-row">
+                  <span class="summary-label">Sub total:</span>
+                  <span class="summary-value" id="doc-subtotal">₹2,600.00</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">GST:</span>
+                  <span class="summary-value" id="doc-gst">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Revision Charges:</span>
+                  <span class="summary-value" id="doc-revision">₹0.00</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-row total-row">
+                  <span class="total-label">Total Payable Amount:</span>
+                  <span class="total-value" id="doc-grand-total">2,600.00 INR</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- PINNED PAGE FOOTER: PORTFOLIO HYPERLINK -->
+            <div class="footer-portfolio" id="doc-footer-portfolio">
+              <a id="doc-portfolio-link" href="https://iamsohit.framer.ai" target="_blank" rel="noopener">iamsohit.framer.ai</a>
+            </div>
+
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+.env
+.DS_Store
+.vscode/
+dist/
+build/
+*.log
+/.idea/
+Thumbs.db
+npm-debug.log*
+yarn-error.log

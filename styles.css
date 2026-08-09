@@ -502,10 +502,42 @@ textarea {
   justify-content: center;
 }
 
+.bank-details-box {
+  min-width: 240px;
+  padding: 14px;
+  border-radius: 10px;
+  background-color: #0b0b0f;
+  border: 1px solid #27272a;
+  color: #e5e7eb;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.bank-details-box strong {
+  color: #f8fafc;
+}
+
 .qr-code-box canvas,
 .qr-code-box img {
   width: 100% !important;
   height: 100% !important;
+}
+
+.footer-sheet {
+  position: absolute;
+  bottom: 20px;
+  left: 64px;
+}
+
+.footer-sheet a {
+  color: #8b94a6;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+.footer-sheet a:hover {
+  color: #d4d4d8;
 }
 
 /* SELLER DETAILS (TOP RIGHT) */

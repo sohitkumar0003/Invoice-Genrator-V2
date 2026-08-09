@@ -13,6 +13,11 @@ const initialInvoiceState = {
   qrLabel: "Pay online",
   qrValue: "https://pay.example.com/alexrivera",
   customQrImageData: null,
+  paymentMode: "qr",
+  bankPayeeName: "",
+  bankAccountNumber: "",
+  bankIFSC: "",
+  googleSheetUrl: "",
 
   clientName: "Acme Global Solutions LLC",
   clientAddress: "742 Evergreen Terrace, Floor 12\nMetropolis, NY 10001",
@@ -53,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Bind Form Inputs
   bindFormInputs();
+  updatePaymentFieldsVisibility();
   
   // Render Form Items List & Live Preview
   renderFormItems();
@@ -139,6 +145,11 @@ function bindFormInputs() {
     { id: "invoice-date", key: "invoiceDate" },
     { id: "currency-symbol", key: "currencySymbol" },
     { id: "currency-code", key: "currencyCode" },
+    { id: "payment-mode", key: "paymentMode" },
+    { id: "bank-payee-name", key: "bankPayeeName" },
+    { id: "bank-account-number", key: "bankAccountNumber" },
+    { id: "bank-ifsc", key: "bankIFSC" },
+    { id: "google-sheet-url", key: "googleSheetUrl" },
     { id: "gst-amount", key: "gstTotal", isNumber: true },
     { id: "revision-charges", key: "revisionCharges", isNumber: true }
   ];
@@ -153,8 +164,21 @@ function bindFormInputs() {
     // Event listener for live updates
     el.addEventListener("input", (e) => {
       state[key] = isNumber ? parseFloat(e.target.value) || 0 : e.target.value;
+      if (key === "paymentMode") {
+        updatePaymentFieldsVisibility();
+      }
       updateLivePreview();
     });
+  });
+}
+
+function updatePaymentFieldsVisibility() {
+  const showBank = state.paymentMode === "bank";
+  document.querySelectorAll(".bank-details-group").forEach((group) => {
+    group.style.display = showBank ? "flex" : "none";
+  });
+  document.querySelectorAll(".qr-only-group").forEach((group) => {
+    group.style.display = showBank ? "none" : "flex";
   });
 }
 
@@ -300,9 +324,40 @@ function updateLivePreview() {
     }
   }
 
-  // Update QR Code Label & QR Matrix
-  document.getElementById("doc-qr-label").textContent = state.qrLabel || "Pay online";
-  renderQRCode(state.qrValue || "connect.sohit@gmail.com");
+  // Update QR or Bank Payment Details
+  const qrLabelEl = document.getElementById("doc-qr-label");
+  const bankDetailsEl = document.getElementById("doc-bank-details");
+  const qrContainerEl = document.getElementById("doc-qr-code");
+  qrLabelEl.textContent = state.qrLabel || "Pay online";
+
+  if (state.paymentMode === "bank") {
+    qrContainerEl.style.display = "none";
+    if (bankDetailsEl) {
+      const bankHtml = [];
+      if (state.bankPayeeName) bankHtml.push(`<div><strong>Payee Name:</strong> ${escapeHtml(state.bankPayeeName)}</div>`);
+      if (state.bankAccountNumber) bankHtml.push(`<div><strong>Account No.:</strong> ${escapeHtml(state.bankAccountNumber)}</div>`);
+      if (state.bankIFSC) bankHtml.push(`<div><strong>IFSC:</strong> ${escapeHtml(state.bankIFSC)}</div>`);
+      bankDetailsEl.style.display = bankHtml.length ? "block" : "none";
+      bankDetailsEl.innerHTML = bankHtml.join("");
+    }
+  } else {
+    qrContainerEl.style.display = "flex";
+    if (bankDetailsEl) bankDetailsEl.style.display = "none";
+    renderQRCode(state.qrValue || "connect.sohit@gmail.com");
+  }
+
+  // Update Google Sheet link
+  const sheetLink = document.getElementById("doc-sheet-link");
+  const sheetContainer = document.getElementById("doc-footer-sheet");
+  if (sheetLink && sheetContainer) {
+    const sheetUrl = (state.googleSheetUrl || "").trim();
+    if (sheetUrl) {
+      sheetContainer.style.display = "block";
+      sheetLink.href = sheetUrl.startsWith("http://") || sheetUrl.startsWith("https://") ? sheetUrl : `https://${sheetUrl}`;
+    } else {
+      sheetContainer.style.display = "none";
+    }
+  }
 
   // Update Title Meta
   document.getElementById("doc-invoice-number").textContent = state.invoiceNumber || "";
@@ -444,6 +499,7 @@ function handleDownloadPDF() {
 function handleResetSample() {
   state = JSON.parse(JSON.stringify(initialInvoiceState));
   bindFormInputs();
+  updatePaymentFieldsVisibility();
   renderFormItems();
   updateLivePreview();
 }

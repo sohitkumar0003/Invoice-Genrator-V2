@@ -91,15 +91,36 @@
                   <input type="text" id="qr-label" value="Pay online">
                 </div>
                 <div class="form-group">
-                  <label for="portfolio-url">Footer Link / Portfolio</label>
-                  <input type="text" id="portfolio-url" placeholder="e.g. iamsohit.framer.ai">
+                  <label for="payment-mode">Payment Details Type</label>
+                  <select id="payment-mode">
+                    <option value="qr">QR / payment link</option>
+                    <option value="bank">Bank transfer details</option>
+                  </select>
                 </div>
               </div>
-              <div class="form-group">
+              <div class="form-group bank-details-group" style="display:none;">
+                <label for="bank-payee-name">Bank Payee Name</label>
+                <input type="text" id="bank-payee-name" placeholder="e.g. SOHIT KUMAR">
+              </div>
+              <div class="form-row bank-details-group" style="display:none;">
+                <div class="form-group">
+                  <label for="bank-account-number">Account Number</label>
+                  <input type="text" id="bank-account-number" placeholder="e.g. 123456789012">
+                </div>
+                <div class="form-group">
+                  <label for="bank-ifsc">Bank IFSC</label>
+                  <input type="text" id="bank-ifsc" placeholder="e.g. HDFC0001234">
+                </div>
+              </div>
+              <div class="form-group qr-only-group">
                 <label for="qr-value">UPI / Payment Link for QR</label>
                 <input type="text" id="qr-value" placeholder="e.g. https://pay.example.com/alexrivera">
               </div>
               <div class="form-group">
+                <label for="google-sheet-url">Google Sheet URL for Invoice History</label>
+                <input type="text" id="google-sheet-url" placeholder="e.g. https://docs.google.com/spreadsheets/..."></input>
+              </div>
+              <div class="form-group qr-only-group">
                 <label for="qr-image-upload">Upload Custom QR Code (Image)</label>
                 <input type="file" id="qr-image-upload" accept="image/*">
                 <button id="remove-qr-image-btn" class="btn btn-danger btn-block" style="display:none; font-size:0.75rem; margin-top:4px;">
@@ -224,6 +245,7 @@
               <div class="qr-container">
                 <div class="qr-label" id="doc-qr-label">Pay online</div>
                 <div id="doc-qr-code" class="qr-code-box"></div>
+                <div id="doc-bank-details" class="bank-details-box" style="display:none;"></div>
               </div>
               <div class="seller-details">
                 <div class="seller-name" id="doc-seller-name">SOHIT KUMAR</div>
@@ -303,6 +325,9 @@
             <!-- PINNED PAGE FOOTER: PORTFOLIO HYPERLINK -->
             <div class="footer-portfolio" id="doc-footer-portfolio">
               <a id="doc-portfolio-link" href="https://iamsohit.framer.ai" target="_blank" rel="noopener">iamsohit.framer.ai</a>
+            </div>
+            <div class="footer-sheet" id="doc-footer-sheet" style="display:none;">
+              <a id="doc-sheet-link" href="#" target="_blank" rel="noopener">View invoice history</a>
             </div>
 
           </div>

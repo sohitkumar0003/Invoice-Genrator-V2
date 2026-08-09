@@ -17,7 +17,6 @@ const initialInvoiceState = {
   bankPayeeName: "",
   bankAccountNumber: "",
   bankIFSC: "",
-  googleSheetUrl: "",
 
   clientName: "Acme Global Solutions LLC",
   clientAddress: "742 Evergreen Terrace, Floor 12\nMetropolis, NY 10001",
@@ -149,7 +148,6 @@ function bindFormInputs() {
     { id: "bank-payee-name", key: "bankPayeeName" },
     { id: "bank-account-number", key: "bankAccountNumber" },
     { id: "bank-ifsc", key: "bankIFSC" },
-    { id: "google-sheet-url", key: "googleSheetUrl" },
     { id: "gst-amount", key: "gstTotal", isNumber: true },
     { id: "revision-charges", key: "revisionCharges", isNumber: true }
   ];
@@ -346,18 +344,7 @@ function updateLivePreview() {
     renderQRCode(state.qrValue || "connect.sohit@gmail.com");
   }
 
-  // Update Google Sheet link
-  const sheetLink = document.getElementById("doc-sheet-link");
-  const sheetContainer = document.getElementById("doc-footer-sheet");
-  if (sheetLink && sheetContainer) {
-    const sheetUrl = (state.googleSheetUrl || "").trim();
-    if (sheetUrl) {
-      sheetContainer.style.display = "block";
-      sheetLink.href = sheetUrl.startsWith("http://") || sheetUrl.startsWith("https://") ? sheetUrl : `https://${sheetUrl}`;
-    } else {
-      sheetContainer.style.display = "none";
-    }
-  }
+  
 
   // Update Title Meta
   document.getElementById("doc-invoice-number").textContent = state.invoiceNumber || "";

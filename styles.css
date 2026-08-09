@@ -523,22 +523,7 @@ textarea {
   height: 100% !important;
 }
 
-.footer-sheet {
-  position: absolute;
-  bottom: 20px;
-  left: 64px;
-}
 
-.footer-sheet a {
-  color: #8b94a6;
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.2s ease;
-}
-
-.footer-sheet a:hover {
-  color: #d4d4d8;
-}
 
 /* SELLER DETAILS (TOP RIGHT) */
 .seller-details {

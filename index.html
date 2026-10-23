@@ -45,6 +45,9 @@
         <button id="print-btn" class="btn btn-secondary" title="Print document">
           <i data-lucide="printer"></i> Print
         </button>
+        <button id="company-settings-btn" class="btn btn-secondary" title="Manage company profiles">
+          <i data-lucide="settings"></i> Settings
+        </button>
         <button id="download-pdf-btn" class="btn btn-primary" title="Export as PDF">
           <i data-lucide="download"></i> Download PDF
         </button>
@@ -61,6 +64,41 @@
         </div>
 
         <div class="form-scroll-area">
+          <!-- SECTION 1: INVOICE METADATA -->
+          <details open class="form-section">
+            <summary class="section-title">
+              <i data-lucide="file-text"></i> Invoice Details
+            </summary>
+            <div class="section-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="invoice-number">Invoice Number</label>
+                  <input type="text" id="invoice-number" placeholder="e.g. #INV-00102">
+                </div>
+                <div class="form-group">
+                  <label for="invoice-date">Invoice Date</label>
+                  <input type="date" id="invoice-date">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="currency">Currency</label>
+                  <select id="currency">
+                    <option value="INR">Indian Rupee (₹ INR)</option>
+                    <option value="USD" selected>US Dollar ($ USD)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="invoice-color-mode">Invoice Color</label>
+                  <select id="invoice-color-mode">
+                    <option value="dark">Black invoice</option>
+                    <option value="light">White invoice</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </details>
+
           <!-- SECTION 1: SELLER / ISSUER DETAILS -->
           <details open class="form-section">
             <summary class="section-title">
@@ -68,8 +106,11 @@
             </summary>
             <div class="section-body">
               <div class="form-group">
-                <label for="seller-name">Full Name / Organization</label>
-                <input type="text" id="seller-name" placeholder="e.g. ALEX RIVERA">
+                <label for="company-profile">Full Name / Organization</label>
+                <select id="company-profile">
+                  <option value="">Manual entry</option>
+                </select>
+                <input type="text" id="seller-name" aria-label="Full Name / Organization" placeholder="e.g. ALEX RIVERA">
               </div>
               <div class="form-group">
                 <label for="seller-address">Address (Line 1 & 2)</label>
@@ -150,35 +191,6 @@
                 <div class="form-group">
                   <label for="client-phone">Client Phone(s)</label>
                   <input type="text" id="client-phone" placeholder="e.g. +1 (555) 012-3456">
-                </div>
-              </div>
-            </div>
-          </details>
-
-          <!-- SECTION 3: INVOICE METADATA -->
-          <details open class="form-section">
-            <summary class="section-title">
-              <i data-lucide="file-text"></i> Invoice Details
-            </summary>
-            <div class="section-body">
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="invoice-number">Invoice Number</label>
-                  <input type="text" id="invoice-number" placeholder="e.g. #INV-00102">
-                </div>
-                <div class="form-group">
-                  <label for="invoice-date">Invoice Date</label>
-                  <input type="text" id="invoice-date" placeholder="e.g. 03 Aug 2026">
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="currency-symbol">Currency Symbol</label>
-                  <input type="text" id="currency-symbol" value="$">
-                </div>
-                <div class="form-group">
-                  <label for="currency-code">Currency Code</label>
-                  <input type="text" id="currency-code" value="USD">
                 </div>
               </div>
             </div>
@@ -331,6 +343,92 @@
       </section>
     </main>
   </div>
+
+  <dialog id="company-settings-dialog" class="company-settings-dialog">
+    <div class="settings-dialog-header">
+      <div>
+        <h2>Company Profiles</h2>
+        <p>Save seller and payment details to reuse on future invoices.</p>
+      </div>
+      <button id="close-company-settings-btn" class="icon-btn" type="button" aria-label="Close company settings">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="settings-dialog-content">
+      <section class="saved-companies-section">
+        <div class="settings-section-heading">
+          <h3>Saved companies</h3>
+          <button id="add-company-btn" class="btn btn-secondary" type="button">
+            <i data-lucide="plus"></i> Add Company
+          </button>
+        </div>
+        <div id="company-profiles-list" class="company-profiles-list"></div>
+      </section>
+      <form id="company-profile-form" class="company-profile-form">
+        <h3 id="company-form-title">Add a company</h3>
+        <input type="hidden" id="company-edit-id">
+        <div class="form-group">
+          <label for="company-name">Full Name / Organization</label>
+          <input type="text" id="company-name" required placeholder="e.g. ALEX RIVERA">
+        </div>
+        <div class="form-group">
+          <label for="company-address">Address (Line 1 & 2)</label>
+          <textarea id="company-address" rows="2" placeholder="Company address"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="company-email">Email Address</label>
+            <input type="email" id="company-email" placeholder="name@example.com">
+          </div>
+          <div class="form-group">
+            <label for="company-phone">Phone Number</label>
+            <input type="text" id="company-phone" placeholder="+1 (555) 019-2834">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="company-payment-label">Payment Label</label>
+            <input type="text" id="company-payment-label" value="Pay online">
+          </div>
+          <div class="form-group">
+            <label for="company-payment-mode">Payment Details Type</label>
+            <select id="company-payment-mode">
+              <option value="qr">QR / payment link</option>
+              <option value="bank">Bank transfer details</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group company-qr-field">
+          <label for="company-qr-value">UPI / Payment Link for QR</label>
+          <input type="text" id="company-qr-value" placeholder="https://pay.example.com/company">
+        </div>
+        <div class="form-group company-bank-field" hidden>
+          <label for="company-bank-payee-name">Bank Payee Name</label>
+          <input type="text" id="company-bank-payee-name" placeholder="Account holder name">
+        </div>
+        <div class="form-row company-bank-field" hidden>
+          <div class="form-group">
+            <label for="company-bank-account-number">Account Number</label>
+            <input type="text" id="company-bank-account-number" placeholder="Account number">
+          </div>
+          <div class="form-group">
+            <label for="company-bank-ifsc">Bank IFSC</label>
+            <input type="text" id="company-bank-ifsc" placeholder="Bank IFSC">
+          </div>
+        </div>
+        <div class="form-group company-qr-field">
+          <label for="company-qr-image">Custom QR Code (Optional)</label>
+          <input type="file" id="company-qr-image" accept="image/*">
+          <button id="remove-company-qr-btn" class="btn btn-danger btn-block" type="button" hidden>Remove saved QR image</button>
+        </div>
+        <div id="company-settings-status" class="company-settings-status" role="status" aria-live="polite"></div>
+        <div class="company-form-actions">
+          <button id="cancel-company-edit-btn" class="btn btn-secondary" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save Company</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

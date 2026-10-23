@@ -25,9 +25,9 @@ const initialInvoiceState = {
   
 
   invoiceNumber: "#INV-00102",
-  invoiceDate: "03 Aug 2026",
-  currencySymbol: "$",
-  currencyCode: "USD",
+  invoiceDate: "2026-08-03",
+  currency: "USD",
+  invoiceColorMode: "dark",
 
   items: [
     {
@@ -47,6 +47,9 @@ const initialInvoiceState = {
 // Application State
 let state = JSON.parse(JSON.stringify(initialInvoiceState));
 let currentZoom = 1.0;
+const COMPANY_PROFILES_STORAGE_KEY = "invoice-generator-company-profiles";
+let companyProfiles = [];
+let companyQrImageData = null;
 
 // DOM Elements Initialization
 document.addEventListener("DOMContentLoaded", () => {
@@ -54,6 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+
+  loadCompanyProfiles();
+  renderCompanyProfiles();
 
   // Bind Form Inputs
   bindFormInputs();
@@ -68,6 +74,18 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("reset-sample-btn").addEventListener("click", handleResetSample);
   document.getElementById("print-btn").addEventListener("click", () => window.print());
   document.getElementById("download-pdf-btn").addEventListener("click", handleDownloadPDF);
+  document.getElementById("company-settings-btn").addEventListener("click", openCompanySettings);
+  document.getElementById("close-company-settings-btn").addEventListener("click", () => {
+    document.getElementById("company-settings-dialog").close();
+  });
+  document.getElementById("add-company-btn").addEventListener("click", resetCompanyForm);
+  document.getElementById("cancel-company-edit-btn").addEventListener("click", resetCompanyForm);
+  document.getElementById("company-profile-form").addEventListener("submit", handleSaveCompany);
+  document.getElementById("company-payment-mode").addEventListener("change", updateCompanyPaymentFieldsVisibility);
+  document.getElementById("company-profiles-list").addEventListener("click", handleCompanyListAction);
+  document.getElementById("company-profile").addEventListener("change", handleCompanySelection);
+  document.getElementById("company-qr-image").addEventListener("change", handleCompanyQrImageChange);
+  document.getElementById("remove-company-qr-btn").addEventListener("click", removeCompanyQrImage);
 
   // Custom QR Image Upload listener
   const qrImageUpload = document.getElementById("qr-image-upload");
@@ -142,8 +160,8 @@ function bindFormInputs() {
     { id: "client-phone", key: "clientPhone" },
     { id: "invoice-number", key: "invoiceNumber" },
     { id: "invoice-date", key: "invoiceDate" },
-    { id: "currency-symbol", key: "currencySymbol" },
-    { id: "currency-code", key: "currencyCode" },
+    { id: "currency", key: "currency" },
+    { id: "invoice-color-mode", key: "invoiceColorMode" },
     { id: "payment-mode", key: "paymentMode" },
     { id: "bank-payee-name", key: "bankPayeeName" },
     { id: "bank-account-number", key: "bankAccountNumber" },
@@ -160,14 +178,298 @@ function bindFormInputs() {
     el.value = state[key] !== undefined ? state[key] : "";
 
     // Event listener for live updates
-    el.addEventListener("input", (e) => {
+    const updateState = (e) => {
       state[key] = isNumber ? parseFloat(e.target.value) || 0 : e.target.value;
       if (key === "paymentMode") {
         updatePaymentFieldsVisibility();
       }
+      if (["sellerName", "sellerAddress", "sellerEmail", "sellerPhone", "qrLabel", "qrValue", "paymentMode", "bankPayeeName", "bankAccountNumber", "bankIFSC"].includes(key)) {
+        document.getElementById("company-profile").value = "";
+        updateCompanyNameVisibility();
+      }
       updateLivePreview();
-    });
+    };
+
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", updateState);
   });
+}
+
+function loadCompanyProfiles() {
+  try {
+    const storedProfiles = localStorage.getItem(COMPANY_PROFILES_STORAGE_KEY);
+    if (!storedProfiles) return;
+
+    const parsedProfiles = JSON.parse(storedProfiles);
+    const profileFields = [
+      "sellerAddress", "sellerEmail", "sellerPhone", "qrLabel", "qrValue",
+      "bankPayeeName", "bankAccountNumber", "bankIFSC"
+    ];
+    if (!Array.isArray(parsedProfiles) || parsedProfiles.some((profile) =>
+      !profile ||
+      typeof profile.id !== "string" ||
+      typeof profile.sellerName !== "string" ||
+      profileFields.some((field) => typeof profile[field] !== "string") ||
+      !["qr", "bank"].includes(profile.paymentMode) ||
+      (profile.customQrImageData !== null && typeof profile.customQrImageData !== "string")
+    )) {
+      throw new Error("Saved company profile data has an invalid format.");
+    }
+    companyProfiles = parsedProfiles;
+  } catch (error) {
+    console.error("Unable to load saved company profiles.", error);
+    window.alert("Saved company profiles could not be loaded. You can still continue using the invoice generator.");
+  }
+}
+
+function persistCompanyProfiles(profiles) {
+  try {
+    localStorage.setItem(COMPANY_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+    companyProfiles = profiles;
+    renderCompanyProfiles();
+    return true;
+  } catch (error) {
+    console.error("Unable to save company profiles.", error);
+    setCompanySettingsStatus("Could not save company profiles in this browser. Check available browser storage and try again.", true);
+    return false;
+  }
+}
+
+function renderCompanyProfiles() {
+  const selector = document.getElementById("company-profile");
+  const selectedId = selector.value;
+  selector.replaceChildren(new Option("Manual entry", ""));
+
+  companyProfiles.forEach((profile) => {
+    selector.add(new Option(profile.sellerName, profile.id));
+  });
+  selector.value = companyProfiles.some((profile) => profile.id === selectedId) ? selectedId : "";
+  updateCompanyNameVisibility();
+
+  const list = document.getElementById("company-profiles-list");
+  list.replaceChildren();
+  if (companyProfiles.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-company-list";
+    emptyState.textContent = "No companies saved yet. Add a company to reuse its invoice details.";
+    list.appendChild(emptyState);
+    return;
+  }
+
+  companyProfiles.forEach((profile) => {
+    const row = document.createElement("div");
+    row.className = "company-profile-row";
+    const name = document.createElement("span");
+    name.className = "company-profile-name";
+    name.textContent = profile.sellerName;
+    const actions = document.createElement("div");
+    actions.className = "company-profile-actions";
+    ["Edit", "Delete"].forEach((label) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = label === "Delete" ? "btn btn-danger" : "btn btn-secondary";
+      button.dataset.action = label.toLowerCase();
+      button.dataset.profileId = profile.id;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+    row.append(name, actions);
+    list.appendChild(row);
+  });
+}
+
+function openCompanySettings() {
+  setCompanySettingsStatus("");
+  document.getElementById("company-settings-dialog").showModal();
+}
+
+function resetCompanyForm() {
+  const form = document.getElementById("company-profile-form");
+  form.reset();
+  document.getElementById("company-edit-id").value = "";
+  document.getElementById("company-form-title").textContent = "Add a company";
+  document.getElementById("company-qr-image").value = "";
+  companyQrImageData = null;
+  document.getElementById("remove-company-qr-btn").hidden = true;
+  updateCompanyPaymentFieldsVisibility();
+  setCompanySettingsStatus("");
+}
+
+function updateCompanyPaymentFieldsVisibility() {
+  const showBank = document.getElementById("company-payment-mode").value === "bank";
+  document.querySelectorAll(".company-bank-field").forEach((field) => {
+    field.hidden = !showBank;
+  });
+  document.querySelectorAll(".company-qr-field").forEach((field) => {
+    field.hidden = showBank;
+  });
+}
+
+function handleCompanyQrImageChange(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    companyQrImageData = null;
+    return;
+  }
+  if (!file.type.startsWith("image/")) {
+    setCompanySettingsStatus("Choose a valid image file for the custom QR code.", true);
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result !== "string") {
+      setCompanySettingsStatus("The selected QR image could not be read.", true);
+      return;
+    }
+    companyQrImageData = reader.result;
+    document.getElementById("remove-company-qr-btn").hidden = false;
+    setCompanySettingsStatus("");
+  };
+  reader.onerror = () => {
+    setCompanySettingsStatus("The selected QR image could not be read.", true);
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeCompanyQrImage() {
+  companyQrImageData = null;
+  document.getElementById("company-qr-image").value = "";
+  document.getElementById("remove-company-qr-btn").hidden = true;
+}
+
+function handleCompanyListAction(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const profile = companyProfiles.find((item) => item.id === button.dataset.profileId);
+  if (!profile) return;
+
+  if (button.dataset.action === "edit") {
+    document.getElementById("company-edit-id").value = profile.id;
+    document.getElementById("company-form-title").textContent = "Edit company";
+    document.getElementById("company-name").value = profile.sellerName;
+    document.getElementById("company-address").value = profile.sellerAddress;
+    document.getElementById("company-email").value = profile.sellerEmail;
+    document.getElementById("company-phone").value = profile.sellerPhone;
+    document.getElementById("company-payment-label").value = profile.qrLabel;
+    document.getElementById("company-payment-mode").value = profile.paymentMode;
+    document.getElementById("company-qr-value").value = profile.qrValue;
+    document.getElementById("company-bank-payee-name").value = profile.bankPayeeName;
+    document.getElementById("company-bank-account-number").value = profile.bankAccountNumber;
+    document.getElementById("company-bank-ifsc").value = profile.bankIFSC;
+    document.getElementById("company-qr-image").value = "";
+    companyQrImageData = profile.customQrImageData || null;
+    document.getElementById("remove-company-qr-btn").hidden = !companyQrImageData;
+    updateCompanyPaymentFieldsVisibility();
+    setCompanySettingsStatus("");
+    document.getElementById("company-name").focus();
+    return;
+  }
+
+  if (button.dataset.action === "delete" && window.confirm(`Delete the saved profile for "${profile.sellerName}"?`)) {
+    const saved = persistCompanyProfiles(companyProfiles.filter((item) => item.id !== profile.id));
+    if (!saved) return;
+    if (document.getElementById("company-profile").value === profile.id) {
+      document.getElementById("company-profile").value = "";
+      updateCompanyNameVisibility();
+    }
+    if (document.getElementById("company-edit-id").value === profile.id) resetCompanyForm();
+  }
+}
+
+function handleSaveCompany(event) {
+  event.preventDefault();
+  const name = document.getElementById("company-name").value.trim();
+  if (!name) {
+    setCompanySettingsStatus("Enter a company or organization name.", true);
+    return;
+  }
+  if (document.getElementById("company-qr-image").files.length && !companyQrImageData) {
+    setCompanySettingsStatus("Wait for the QR image to finish loading, then save again.", true);
+    return;
+  }
+
+  const editId = document.getElementById("company-edit-id").value;
+  const existingProfile = companyProfiles.find((profile) => profile.id === editId);
+  const profile = {
+    id: editId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    sellerName: name,
+    sellerAddress: document.getElementById("company-address").value,
+    sellerEmail: document.getElementById("company-email").value,
+    sellerPhone: document.getElementById("company-phone").value,
+    qrLabel: document.getElementById("company-payment-label").value,
+    paymentMode: document.getElementById("company-payment-mode").value,
+    qrValue: document.getElementById("company-qr-value").value,
+    customQrImageData: companyQrImageData,
+    bankPayeeName: document.getElementById("company-bank-payee-name").value,
+    bankAccountNumber: document.getElementById("company-bank-account-number").value,
+    bankIFSC: document.getElementById("company-bank-ifsc").value
+  };
+  const profiles = existingProfile
+    ? companyProfiles.map((item) => item.id === editId ? profile : item)
+    : [...companyProfiles, profile];
+
+  if (!persistCompanyProfiles(profiles)) return;
+  document.getElementById("company-profile").value = profile.id;
+  updateCompanyNameVisibility();
+  applyCompanyProfile(profile);
+  resetCompanyForm();
+  setCompanySettingsStatus(`Saved "${profile.sellerName}". Select it from Full Name / Organization to use it on an invoice.`);
+}
+
+function handleCompanySelection(event) {
+  const profile = companyProfiles.find((item) => item.id === event.target.value);
+  updateCompanyNameVisibility();
+  if (!profile) return;
+  applyCompanyProfile(profile);
+}
+
+function updateCompanyNameVisibility() {
+  const isManual = !document.getElementById("company-profile").value;
+  const nameInput = document.getElementById("seller-name");
+  nameInput.hidden = !isManual;
+  nameInput.setAttribute("aria-hidden", String(!isManual));
+}
+
+function applyCompanyProfile(profile) {
+  const profileState = {
+    sellerName: profile.sellerName,
+    sellerAddress: profile.sellerAddress,
+    sellerEmail: profile.sellerEmail,
+    sellerPhone: profile.sellerPhone,
+    qrLabel: profile.qrLabel,
+    paymentMode: profile.paymentMode,
+    qrValue: profile.qrValue,
+    customQrImageData: profile.customQrImageData,
+    bankPayeeName: profile.bankPayeeName,
+    bankAccountNumber: profile.bankAccountNumber,
+    bankIFSC: profile.bankIFSC
+  };
+  Object.assign(state, profileState);
+  Object.entries({
+    "seller-name": "sellerName",
+    "seller-address": "sellerAddress",
+    "seller-email": "sellerEmail",
+    "seller-phone": "sellerPhone",
+    "qr-label": "qrLabel",
+    "payment-mode": "paymentMode",
+    "qr-value": "qrValue",
+    "bank-payee-name": "bankPayeeName",
+    "bank-account-number": "bankAccountNumber",
+    "bank-ifsc": "bankIFSC"
+  }).forEach(([id, key]) => {
+    document.getElementById(id).value = state[key] || "";
+  });
+  document.getElementById("qr-image-upload").value = "";
+  document.getElementById("remove-qr-image-btn").style.display = state.customQrImageData ? "block" : "none";
+  updatePaymentFieldsVisibility();
+  updateLivePreview();
+}
+
+function setCompanySettingsStatus(message, isError = false) {
+  const status = document.getElementById("company-settings-status");
+  status.textContent = message;
+  status.classList.toggle("error", isError);
 }
 
 function updatePaymentFieldsVisibility() {
@@ -298,6 +600,10 @@ function handleAddItem() {
  * Update Live Preview Document DOM
  */
 function updateLivePreview() {
+  const invoiceDocument = document.getElementById("invoice-document");
+  invoiceDocument.classList.toggle("light-theme", state.invoiceColorMode === "light");
+  invoiceDocument.classList.toggle("dark-theme", state.invoiceColorMode !== "light");
+
   // Update Seller Details
   document.getElementById("doc-seller-name").textContent = state.sellerName || "";
   document.getElementById("doc-seller-address").innerHTML = (state.sellerAddress || "").replace(/\n/g, "<br>");
@@ -356,7 +662,7 @@ function updateLivePreview() {
   document.getElementById("doc-client-phone").textContent = state.clientPhone || "";
 
   // Update Invoice Date
-  document.getElementById("doc-invoice-date").textContent = state.invoiceDate || "";
+  document.getElementById("doc-invoice-date").textContent = formatInvoiceDate(state.invoiceDate);
 
   // Render Items Table Rows
   const tbody = document.getElementById("doc-items-body");
@@ -386,8 +692,8 @@ function updateLivePreview() {
   });
 
   // Calculate Totals
-  const symbol = state.currencySymbol || "₹";
-  const code = state.currencyCode || "INR";
+  const code = state.currency === "INR" ? "INR" : "USD";
+  const symbol = code === "INR" ? "₹" : "$";
   const gstTotal = state.gstTotal !== undefined && state.gstTotal !== 0 ? state.gstTotal : state.items.reduce((sum, item) => sum + (item.gst || 0), 0);
   const revision = state.revisionCharges || 0;
   const grandTotal = subtotal + gstTotal + revision;
@@ -457,7 +763,7 @@ function handleDownloadPDF() {
       // slightly over one page and create a blank extra page
       scale: Math.min(1.5, window.devicePixelRatio || 1),
       useCORS: true,
-      backgroundColor: "#111111"
+      backgroundColor: state.invoiceColorMode === "light" ? "#ffffff" : "#111111"
     },
     jsPDF: {
       unit: "pt",
@@ -485,8 +791,12 @@ function handleDownloadPDF() {
  */
 function handleResetSample() {
   state = JSON.parse(JSON.stringify(initialInvoiceState));
+  document.getElementById("company-profile").value = "";
+  updateCompanyNameVisibility();
   bindFormInputs();
   updatePaymentFieldsVisibility();
+  document.getElementById("qr-image-upload").value = "";
+  document.getElementById("remove-qr-image-btn").style.display = "none";
   renderFormItems();
   updateLivePreview();
 }
@@ -510,6 +820,23 @@ function formatNumber(num) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+function formatInvoiceDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!match) return "";
+
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(date);
 }
 
 /**

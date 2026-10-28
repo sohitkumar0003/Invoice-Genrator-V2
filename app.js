@@ -145,8 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 /**
  * Bind DOM Form Inputs with Application State
  */
-function bindFormInputs() {
-  const inputMap = [
+const FORM_INPUTS = [
     { id: "seller-name", key: "sellerName" },
     { id: "seller-address", key: "sellerAddress" },
     { id: "seller-email", key: "sellerEmail" },
@@ -168,14 +167,14 @@ function bindFormInputs() {
     { id: "bank-ifsc", key: "bankIFSC" },
     { id: "gst-amount", key: "gstTotal", isNumber: true },
     { id: "revision-charges", key: "revisionCharges", isNumber: true }
-  ];
+];
 
-  inputMap.forEach(({ id, key, isNumber }) => {
+function bindFormInputs() {
+  syncFormInputs();
+
+  FORM_INPUTS.forEach(({ id, key, isNumber }) => {
     const el = document.getElementById(id);
     if (!el) return;
-
-    // Set initial value
-    el.value = state[key] !== undefined ? state[key] : "";
 
     // Event listener for live updates
     const updateState = (e) => {
@@ -191,6 +190,16 @@ function bindFormInputs() {
     };
 
     el.addEventListener(el.tagName === "SELECT" ? "change" : "input", updateState);
+  });
+}
+
+/**
+ * Copy current state values into the form inputs (no listeners attached)
+ */
+function syncFormInputs() {
+  FORM_INPUTS.forEach(({ id, key }) => {
+    const el = document.getElementById(id);
+    if (el) el.value = state[key] !== undefined ? state[key] : "";
   });
 }
 
@@ -606,7 +615,7 @@ function updateLivePreview() {
 
   // Update Seller Details
   document.getElementById("doc-seller-name").textContent = state.sellerName || "";
-  document.getElementById("doc-seller-address").innerHTML = (state.sellerAddress || "").replace(/\n/g, "<br>");
+  document.getElementById("doc-seller-address").innerHTML = escapeHtml(state.sellerAddress).replace(/\n/g, "<br>");
   document.getElementById("doc-seller-email").textContent = state.sellerEmail || "";
 
   const sellerPhoneEl = document.getElementById("doc-seller-phone");
@@ -647,7 +656,7 @@ function updateLivePreview() {
   } else {
     qrContainerEl.style.display = "flex";
     if (bankDetailsEl) bankDetailsEl.style.display = "none";
-    renderQRCode(state.qrValue || "connect.sohit@gmail.com");
+    renderQRCode(state.qrValue || "");
   }
 
   
@@ -657,7 +666,7 @@ function updateLivePreview() {
 
   // Update Client Details
   document.getElementById("doc-client-name").textContent = state.clientName || "";
-  document.getElementById("doc-client-address").innerHTML = (state.clientAddress || "").replace(/\n/g, "<br>");
+  document.getElementById("doc-client-address").innerHTML = escapeHtml(state.clientAddress).replace(/\n/g, "<br>");
   document.getElementById("doc-client-email").textContent = state.clientEmail || "";
   document.getElementById("doc-client-phone").textContent = state.clientPhone || "";
 
@@ -713,11 +722,14 @@ function renderQRCode(text) {
 
   // If user uploaded a custom QR code image file
   if (state.customQrImageData) {
-    qrBox.innerHTML = `<img src="${state.customQrImageData}" alt="Custom QR Code" style="width:100%; height:100%; object-fit:contain; border-radius:2px;">`;
+    qrBox.innerHTML = `<img src="${escapeHtml(state.customQrImageData)}" alt="Custom QR Code" style="width:100%; height:100%; object-fit:contain; border-radius:2px;">`;
     return;
   }
 
-  if (window.QRCode && text.trim() !== "") {
+  // No payment link: leave the box empty rather than encoding a placeholder
+  if (text.trim() === "") return;
+
+  if (window.QRCode) {
     new QRCode(qrBox, {
       text: text,
       width: 100,
@@ -776,9 +788,17 @@ function handleDownloadPDF() {
   opt.pagebreak = { mode: ["css", "legacy"] };
 
   if (window.html2pdf) {
-    window.html2pdf().set(opt).from(element).save().then(() => {
-      setZoom(prevZoom);
-    });
+    // Force the full A4 layout even when the screen is narrow (mobile styles shrink the document)
+    element.classList.add("pdf-export");
+    window.html2pdf().set(opt).from(element).save()
+      .catch((error) => {
+        console.error("PDF export failed.", error);
+        window.alert("The PDF could not be created. Try again, or use Print instead.");
+      })
+      .finally(() => {
+        element.classList.remove("pdf-export");
+        setZoom(prevZoom);
+      });
   } else {
     // Print fallback if library fails to load
     window.print();
@@ -793,7 +813,7 @@ function handleResetSample() {
   state = JSON.parse(JSON.stringify(initialInvoiceState));
   document.getElementById("company-profile").value = "";
   updateCompanyNameVisibility();
-  bindFormInputs();
+  syncFormInputs();
   updatePaymentFieldsVisibility();
   document.getElementById("qr-image-upload").value = "";
   document.getElementById("remove-qr-image-btn").style.display = "none";

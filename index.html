@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@1.56.0/dist/umd/lucide.min.js"></script>
   <!-- QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- html2pdf.js -->
@@ -158,6 +158,8 @@
                 <input type="text" id="qr-value" placeholder="e.g. https://pay.example.com/alexrivera">
               </div>
               <div class="form-group">
+                <label for="portfolio-url">Footer Link (leave empty to hide)</label>
+                <input type="text" id="portfolio-url" placeholder="e.g. yourportfolio.com">
               </div>
               <div class="form-group qr-only-group">
                 <label for="qr-image-upload">Upload Custom QR Code (Image)</label>

@@ -1085,6 +1085,27 @@ textarea {
   }
 }
 
+/* Applied only while exporting a PDF: undo the mobile sizing so the capture is always A4 */
+.invoice-document.pdf-export {
+  flex-shrink: 0;
+  width: 794px;
+  min-height: 1123px;
+  padding: 60px 64px;
+}
+
+.invoice-document.pdf-export .doc-title {
+  font-size: 96px;
+}
+
+.invoice-document.pdf-export .doc-number {
+  font-size: 26px;
+}
+
+.invoice-document.pdf-export .seller-name,
+.invoice-document.pdf-export .client-name {
+  font-size: 20px;
+}
+
 /* ==========================================================================
    PRINT MEDIA RULES
    ========================================================================== */

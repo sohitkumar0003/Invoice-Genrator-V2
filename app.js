@@ -22,7 +22,6 @@ const initialInvoiceState = {
   clientAddress: "742 Evergreen Terrace, Floor 12\nMetropolis, NY 10001",
   clientEmail: "billing@acmeglobal.example",
   clientPhone: "+1 (555) 012-3456",
-  
 
   invoiceNumber: "#INV-00102",
   invoiceDate: "2026-08-03",
@@ -35,21 +34,31 @@ const initialInvoiceState = {
       description: "UI/UX & Presentation Slide Design",
       qty: 10,
       price: 150.00,
-      unit: "/Slide",
-      gst: 0.00
+      unit: "/Slide"
     }
   ],
 
-  gstTotal: 0.00,
-  revisionCharges: 0.00
+  gstRate: 0.00,
+  revisionCharges: 0.00,
+  revisionChargesLabel: "Charges",
+  discountAmount: 0.00,
+  revisionEnabled: true,
+  discountEnabled: true
 };
 
 // Application State
 let state = JSON.parse(JSON.stringify(initialInvoiceState));
 let currentZoom = 1.0;
 const COMPANY_PROFILES_STORAGE_KEY = "invoice-generator-company-profiles";
+const CLIENT_PROFILES_STORAGE_KEY = "invoice-generator-client-profiles";
+const INVOICE_HISTORY_STORAGE_KEY = "invoice-generator-invoice-history";
 let companyProfiles = [];
+let clientProfiles = [];
+let invoiceHistory = [];
+let invoiceHistoryAvailable = true;
 let companyQrImageData = null;
+let isInvoiceGenerating = false;
+let settingsDrawerCloseTimer = null;
 
 // DOM Elements Initialization
 document.addEventListener("DOMContentLoaded", () => {
@@ -60,10 +69,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadCompanyProfiles();
   renderCompanyProfiles();
+  loadClientProfiles();
+  renderClientProfiles();
+  loadInvoiceHistory();
+  renderInvoiceHistory();
 
   // Bind Form Inputs
   bindFormInputs();
+  validateInvoiceNumber();
   updatePaymentFieldsVisibility();
+  updateChargeFieldsVisibility();
   
   // Render Form Items List & Live Preview
   renderFormItems();
@@ -72,11 +87,28 @@ document.addEventListener("DOMContentLoaded", () => {
   // Attach Event Listeners
   document.getElementById("add-item-btn").addEventListener("click", handleAddItem);
   document.getElementById("reset-sample-btn").addEventListener("click", handleResetSample);
-  document.getElementById("print-btn").addEventListener("click", () => window.print());
+  document.getElementById("print-btn").addEventListener("click", handlePrintInvoice);
   document.getElementById("download-pdf-btn").addEventListener("click", handleDownloadPDF);
   document.getElementById("company-settings-btn").addEventListener("click", openCompanySettings);
-  document.getElementById("close-company-settings-btn").addEventListener("click", () => {
-    document.getElementById("company-settings-dialog").close();
+  const settingsDialog = document.getElementById("company-settings-dialog");
+  document.getElementById("close-company-settings-btn").addEventListener("click", closeCompanySettings);
+  settingsDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeCompanySettings();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && settingsDialog.open) {
+      event.preventDefault();
+      closeCompanySettings();
+    }
+  });
+  settingsDialog.addEventListener("click", (event) => {
+    if (event.target === settingsDialog) closeCompanySettings();
+  });
+  settingsDialog.addEventListener("close", () => {
+    settingsDialog.classList.remove("closing");
+    window.clearTimeout(settingsDrawerCloseTimer);
+    settingsDrawerCloseTimer = null;
   });
   document.getElementById("add-company-btn").addEventListener("click", resetCompanyForm);
   document.getElementById("cancel-company-edit-btn").addEventListener("click", resetCompanyForm);
@@ -86,6 +118,24 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("company-profile").addEventListener("change", handleCompanySelection);
   document.getElementById("company-qr-image").addEventListener("change", handleCompanyQrImageChange);
   document.getElementById("remove-company-qr-btn").addEventListener("click", removeCompanyQrImage);
+  document.getElementById("add-client-btn").addEventListener("click", resetClientForm);
+  document.getElementById("cancel-client-edit-btn").addEventListener("click", resetClientForm);
+  document.getElementById("client-profile-form").addEventListener("submit", handleSaveClient);
+  document.getElementById("client-profiles-list").addEventListener("click", handleClientListAction);
+  document.getElementById("client-profile").addEventListener("change", handleClientSelection);
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    tab.addEventListener("click", () => activateSettingsTab(tab));
+  });
+  document.getElementById("revision-enabled").addEventListener("change", (event) => {
+    state.revisionEnabled = event.target.checked;
+    updateChargeFieldsVisibility();
+    updateLivePreview();
+  });
+  document.getElementById("discount-enabled").addEventListener("change", (event) => {
+    state.discountEnabled = event.target.checked;
+    updateChargeFieldsVisibility();
+    updateLivePreview();
+  });
 
   // Custom QR Image Upload listener
   const qrImageUpload = document.getElementById("qr-image-upload");
@@ -157,6 +207,8 @@ const FORM_INPUTS = [
     { id: "client-address", key: "clientAddress" },
     { id: "client-email", key: "clientEmail" },
     { id: "client-phone", key: "clientPhone" },
+    { id: "revision-charges-label", key: "revisionChargesLabel" },
+    { id: "discount-amount", key: "discountAmount", isNumber: true },
     { id: "invoice-number", key: "invoiceNumber" },
     { id: "invoice-date", key: "invoiceDate" },
     { id: "currency", key: "currency" },
@@ -165,7 +217,7 @@ const FORM_INPUTS = [
     { id: "bank-payee-name", key: "bankPayeeName" },
     { id: "bank-account-number", key: "bankAccountNumber" },
     { id: "bank-ifsc", key: "bankIFSC" },
-    { id: "gst-amount", key: "gstTotal", isNumber: true },
+    { id: "gst-rate", key: "gstRate", isNumber: true },
     { id: "revision-charges", key: "revisionCharges", isNumber: true }
 ];
 
@@ -179,12 +231,17 @@ function bindFormInputs() {
     // Event listener for live updates
     const updateState = (e) => {
       state[key] = isNumber ? parseFloat(e.target.value) || 0 : e.target.value;
+      if (key === "invoiceNumber") validateInvoiceNumber();
       if (key === "paymentMode") {
         updatePaymentFieldsVisibility();
       }
       if (["sellerName", "sellerAddress", "sellerEmail", "sellerPhone", "qrLabel", "qrValue", "paymentMode", "bankPayeeName", "bankAccountNumber", "bankIFSC"].includes(key)) {
         document.getElementById("company-profile").value = "";
         updateCompanyNameVisibility();
+      }
+      if (["clientName", "clientAddress", "clientEmail", "clientPhone"].includes(key)) {
+        document.getElementById("client-profile").value = "";
+        updateClientNameVisibility();
       }
       updateLivePreview();
     };
@@ -259,7 +316,7 @@ function renderCompanyProfiles() {
   if (companyProfiles.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "empty-company-list";
-    emptyState.textContent = "No companies saved yet. Add a company to reuse its invoice details.";
+    emptyState.textContent = "No sellers saved yet. Add a seller to reuse invoice and payment details.";
     list.appendChild(emptyState);
     return;
   }
@@ -286,16 +343,361 @@ function renderCompanyProfiles() {
   });
 }
 
+function loadClientProfiles() {
+  try {
+    const storedProfiles = localStorage.getItem(CLIENT_PROFILES_STORAGE_KEY);
+    if (!storedProfiles) return;
+
+    const parsedProfiles = JSON.parse(storedProfiles);
+    const profileFields = ["clientName", "clientAddress", "clientEmail", "clientPhone"];
+    if (!Array.isArray(parsedProfiles) || parsedProfiles.some((profile) =>
+      !profile ||
+      typeof profile.id !== "string" ||
+      profileFields.some((field) => typeof profile[field] !== "string")
+    )) {
+      throw new Error("Saved client profile data has an invalid format.");
+    }
+    clientProfiles = parsedProfiles;
+  } catch (error) {
+    console.error("Unable to load saved client profiles.", error);
+    window.alert("Saved client profiles could not be loaded. You can still continue using the invoice generator.");
+  }
+}
+
+function persistClientProfiles(profiles) {
+  try {
+    localStorage.setItem(CLIENT_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+    clientProfiles = profiles;
+    renderClientProfiles();
+    return true;
+  } catch (error) {
+    console.error("Unable to save client profiles.", error);
+    setClientSettingsStatus("Could not save client profiles in this browser. Check available browser storage and try again.", true);
+    return false;
+  }
+}
+
+function renderClientProfiles() {
+  const selector = document.getElementById("client-profile");
+  const selectedId = selector.value;
+  selector.replaceChildren(new Option("Manual entry", ""));
+  clientProfiles.forEach((profile) => {
+    selector.add(new Option(profile.clientName, profile.id));
+  });
+  selector.value = clientProfiles.some((profile) => profile.id === selectedId) ? selectedId : "";
+  updateClientNameVisibility();
+
+  const list = document.getElementById("client-profiles-list");
+  list.replaceChildren();
+  if (clientProfiles.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-company-list";
+    emptyState.textContent = "No clients saved yet. Add a client to reuse its billing details.";
+    list.appendChild(emptyState);
+    return;
+  }
+
+  clientProfiles.forEach((profile) => {
+    const row = document.createElement("div");
+    row.className = "company-profile-row";
+    const name = document.createElement("span");
+    name.className = "company-profile-name";
+    name.textContent = profile.clientName;
+    const actions = document.createElement("div");
+    actions.className = "company-profile-actions";
+    ["Edit", "Delete"].forEach((label) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = label === "Delete" ? "btn btn-danger" : "btn btn-secondary";
+      button.dataset.action = label.toLowerCase();
+      button.dataset.profileId = profile.id;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+    row.append(name, actions);
+    list.appendChild(row);
+  });
+}
+
+function resetClientForm() {
+  document.getElementById("client-profile-form").reset();
+  document.getElementById("client-edit-id").value = "";
+  document.getElementById("client-form-title").textContent = "Add a client";
+  setClientSettingsStatus("");
+}
+
+function handleClientListAction(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const profile = clientProfiles.find((item) => item.id === button.dataset.profileId);
+  if (!profile) return;
+
+  if (button.dataset.action === "edit") {
+    document.getElementById("client-edit-id").value = profile.id;
+    document.getElementById("client-form-title").textContent = "Edit client";
+    document.getElementById("saved-client-name").value = profile.clientName;
+    document.getElementById("saved-client-address").value = profile.clientAddress;
+    document.getElementById("saved-client-email").value = profile.clientEmail;
+    document.getElementById("saved-client-phone").value = profile.clientPhone;
+    setClientSettingsStatus("");
+    document.getElementById("saved-client-name").focus();
+    return;
+  }
+
+  if (button.dataset.action === "delete" && window.confirm(`Delete the saved client "${profile.clientName}"?`)) {
+    const saved = persistClientProfiles(clientProfiles.filter((item) => item.id !== profile.id));
+    if (!saved) return;
+    if (document.getElementById("client-profile").value === profile.id) {
+      document.getElementById("client-profile").value = "";
+      updateClientNameVisibility();
+    }
+    if (document.getElementById("client-edit-id").value === profile.id) resetClientForm();
+  }
+}
+
+function handleSaveClient(event) {
+  event.preventDefault();
+  const name = document.getElementById("saved-client-name").value.trim();
+  if (!name) {
+    setClientSettingsStatus("Enter a company or client name.", true);
+    return;
+  }
+
+  const editId = document.getElementById("client-edit-id").value;
+  const profile = {
+    id: editId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    clientName: name,
+    clientAddress: document.getElementById("saved-client-address").value,
+    clientEmail: document.getElementById("saved-client-email").value,
+    clientPhone: document.getElementById("saved-client-phone").value
+  };
+  const profiles = clientProfiles.some((item) => item.id === editId)
+    ? clientProfiles.map((item) => item.id === editId ? profile : item)
+    : [...clientProfiles, profile];
+
+  if (!persistClientProfiles(profiles)) return;
+  document.getElementById("client-profile").value = profile.id;
+  updateClientNameVisibility();
+  applyClientProfile(profile);
+  resetClientForm();
+  setClientSettingsStatus(`Saved "${profile.clientName}". Select it from Saved Client to use it on an invoice.`);
+}
+
+function handleClientSelection(event) {
+  const profile = clientProfiles.find((item) => item.id === event.target.value);
+  updateClientNameVisibility();
+  if (profile) applyClientProfile(profile);
+}
+
+function updateClientNameVisibility() {
+  const nameInput = document.getElementById("client-name");
+  nameInput.hidden = false;
+  nameInput.removeAttribute("aria-hidden");
+}
+
+function applyClientProfile(profile) {
+  const profileState = {
+    clientName: profile.clientName,
+    clientAddress: profile.clientAddress,
+    clientEmail: profile.clientEmail,
+    clientPhone: profile.clientPhone
+  };
+  Object.assign(state, profileState);
+  Object.entries({
+    "client-name": "clientName",
+    "client-address": "clientAddress",
+    "client-email": "clientEmail",
+    "client-phone": "clientPhone"
+  }).forEach(([id, key]) => {
+    document.getElementById(id).value = state[key] || "";
+  });
+  updateLivePreview();
+}
+
+function setClientSettingsStatus(message, isError = false) {
+  const status = document.getElementById("client-settings-status");
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+}
+
+function loadInvoiceHistory() {
+  try {
+    const storedHistory = localStorage.getItem(INVOICE_HISTORY_STORAGE_KEY);
+    if (!storedHistory) return;
+
+    const parsedHistory = JSON.parse(storedHistory);
+    if (!Array.isArray(parsedHistory) || parsedHistory.some((entry) =>
+      !entry ||
+      typeof entry.invoiceNumber !== "string" ||
+      typeof entry.normalizedInvoiceNumber !== "string" ||
+      entry.normalizedInvoiceNumber !== normalizeInvoiceNumber(entry.invoiceNumber) ||
+      typeof entry.generatedAt !== "string" ||
+      !Number.isFinite(Date.parse(entry.generatedAt)) ||
+      typeof entry.clientName !== "string" ||
+      typeof entry.total !== "number" ||
+      !Number.isFinite(entry.total) ||
+      !["INR", "USD"].includes(entry.currency)
+    )) {
+      throw new Error("Saved invoice history has an invalid format.");
+    }
+    invoiceHistory = parsedHistory;
+  } catch (error) {
+    invoiceHistoryAvailable = false;
+    console.error("Unable to load invoice history.", error);
+    window.alert("Invoice history could not be loaded. Invoice generation is disabled to prevent duplicate invoice numbers.");
+  }
+}
+
+function persistInvoiceHistory(history) {
+  try {
+    localStorage.setItem(INVOICE_HISTORY_STORAGE_KEY, JSON.stringify(history));
+    invoiceHistory = history;
+    invoiceHistoryAvailable = true;
+    renderInvoiceHistory();
+    return true;
+  } catch (error) {
+    console.error("Unable to save invoice history.", error);
+    setInvoiceNumberStatus("Invoice history could not be saved. Invoice generation is disabled until browser storage is available.", true);
+    return false;
+  }
+}
+
+function renderInvoiceHistory() {
+  const list = document.getElementById("invoice-history-list");
+  if (!list) return;
+  list.replaceChildren();
+
+  const status = document.getElementById("invoice-history-status");
+  status.textContent = invoiceHistoryAvailable ? "" : "History is unavailable; invoice generation is blocked to prevent duplicate numbers.";
+  status.classList.toggle("error", !invoiceHistoryAvailable);
+
+  if (invoiceHistory.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-company-list";
+    emptyState.textContent = "No invoices generated yet.";
+    list.appendChild(emptyState);
+    return;
+  }
+
+  [...invoiceHistory].reverse().forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "invoice-history-row";
+    const details = document.createElement("div");
+    details.className = "invoice-history-details";
+    const number = document.createElement("strong");
+    number.textContent = entry.invoiceNumber;
+    const client = document.createElement("span");
+    client.textContent = entry.clientName || "No client";
+    const date = document.createElement("time");
+    date.dateTime = entry.generatedAt;
+    date.textContent = new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date(entry.generatedAt));
+    const total = document.createElement("strong");
+    total.textContent = `${formatNumber(entry.total)} ${entry.currency}`;
+    details.append(number, client, date);
+    row.append(details, total);
+    list.appendChild(row);
+  });
+}
+
+function normalizeInvoiceNumber(value) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function validateInvoiceNumber() {
+  const input = document.getElementById("invoice-number");
+  const normalizedNumber = normalizeInvoiceNumber(input.value);
+  let message = "";
+
+  if (!normalizedNumber) {
+    message = "Enter an invoice number before generating an invoice.";
+  } else if (invoiceHistory.some((entry) => entry.normalizedInvoiceNumber === normalizedNumber)) {
+    message = `Invoice number "${input.value.trim()}" has already been used. Enter a unique invoice number.`;
+  } else if (!invoiceHistoryAvailable) {
+    message = "Invoice history is unavailable, so invoice generation is blocked.";
+  }
+
+  input.setCustomValidity(message);
+  setInvoiceNumberStatus(message, Boolean(message));
+  return !message;
+}
+
+function setInvoiceNumberStatus(message, isError = false) {
+  const status = document.getElementById("invoice-number-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+}
+
+function createInvoiceHistoryEntry() {
+  const subtotal = state.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const gst = subtotal * (state.gstRate || 0) / 100;
+  const charges = state.revisionEnabled === false ? 0 : state.revisionCharges || 0;
+  const discount = state.discountEnabled === false ? 0 : state.discountAmount || 0;
+  const currency = state.currency === "INR" ? "INR" : "USD";
+
+  return {
+    invoiceNumber: state.invoiceNumber.trim(),
+    normalizedInvoiceNumber: normalizeInvoiceNumber(state.invoiceNumber),
+    generatedAt: new Date().toISOString(),
+    clientName: state.clientName || "",
+    total: subtotal + gst + charges - discount,
+    currency
+  };
+}
+
+function handlePrintInvoice() {
+  if (!validateInvoiceNumber()) {
+    document.getElementById("invoice-number").reportValidity();
+    return;
+  }
+  if (isInvoiceGenerating) return;
+
+  const entry = createInvoiceHistoryEntry();
+  if (!persistInvoiceHistory([...invoiceHistory, entry])) return;
+  window.print();
+}
+
 function openCompanySettings() {
+  const dialog = document.getElementById("company-settings-dialog");
+  window.clearTimeout(settingsDrawerCloseTimer);
+  settingsDrawerCloseTimer = null;
+  dialog.classList.remove("closing");
   setCompanySettingsStatus("");
-  document.getElementById("company-settings-dialog").showModal();
+  activateSettingsTab(document.getElementById("seller-settings-tab"));
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeCompanySettings() {
+  const dialog = document.getElementById("company-settings-dialog");
+  if (!dialog.open || dialog.classList.contains("closing")) return;
+
+  dialog.classList.add("closing");
+  const finishClosing = () => {
+    settingsDrawerCloseTimer = null;
+    if (dialog.open) dialog.close();
+  };
+  settingsDrawerCloseTimer = window.setTimeout(finishClosing, 300);
+}
+
+function activateSettingsTab(activeTab) {
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    const isActive = tab === activeTab;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  document.querySelectorAll(".settings-panel").forEach((panel) => {
+    panel.hidden = panel.id !== activeTab.getAttribute("aria-controls");
+  });
 }
 
 function resetCompanyForm() {
   const form = document.getElementById("company-profile-form");
   form.reset();
   document.getElementById("company-edit-id").value = "";
-  document.getElementById("company-form-title").textContent = "Add a company";
+  document.getElementById("company-form-title").textContent = "Add a seller";
   document.getElementById("company-qr-image").value = "";
   companyQrImageData = null;
   document.getElementById("remove-company-qr-btn").hidden = true;
@@ -355,7 +757,7 @@ function handleCompanyListAction(event) {
 
   if (button.dataset.action === "edit") {
     document.getElementById("company-edit-id").value = profile.id;
-    document.getElementById("company-form-title").textContent = "Edit company";
+    document.getElementById("company-form-title").textContent = "Edit seller";
     document.getElementById("company-name").value = profile.sellerName;
     document.getElementById("company-address").value = profile.sellerAddress;
     document.getElementById("company-email").value = profile.sellerEmail;
@@ -390,7 +792,7 @@ function handleSaveCompany(event) {
   event.preventDefault();
   const name = document.getElementById("company-name").value.trim();
   if (!name) {
-    setCompanySettingsStatus("Enter a company or organization name.", true);
+    setCompanySettingsStatus("Enter a seller or organization name.", true);
     return;
   }
   if (document.getElementById("company-qr-image").files.length && !companyQrImageData) {
@@ -434,10 +836,9 @@ function handleCompanySelection(event) {
 }
 
 function updateCompanyNameVisibility() {
-  const isManual = !document.getElementById("company-profile").value;
   const nameInput = document.getElementById("seller-name");
-  nameInput.hidden = !isManual;
-  nameInput.setAttribute("aria-hidden", String(!isManual));
+  nameInput.hidden = false;
+  nameInput.removeAttribute("aria-hidden");
 }
 
 function applyCompanyProfile(profile) {
@@ -491,6 +892,15 @@ function updatePaymentFieldsVisibility() {
   });
 }
 
+function updateChargeFieldsVisibility() {
+  const revisionEnabled = state.revisionEnabled !== false;
+  const discountEnabled = state.discountEnabled !== false;
+  document.getElementById("revision-enabled").checked = revisionEnabled;
+  document.getElementById("discount-enabled").checked = discountEnabled;
+  document.getElementById("revision-fields").hidden = !revisionEnabled;
+  document.getElementById("discount-fields").hidden = !discountEnabled;
+}
+
 /**
  * Render Item Form Editor Cards in Left Pane
  */
@@ -524,15 +934,9 @@ function renderFormItems() {
           <input type="number" step="0.01" class="item-price" data-id="${item.id}" value="${item.price}">
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Unit Label</label>
-          <input type="text" class="item-unit" data-id="${item.id}" value="${escapeHtml(item.unit || "")}" placeholder="e.g. /Slide or /hr">
-        </div>
-        <div class="form-group">
-          <label>GST</label>
-          <input type="number" step="0.01" class="item-gst" data-id="${item.id}" value="${item.gst || 0}">
-        </div>
+      <div class="form-group">
+        <label>Unit Label</label>
+        <input type="text" class="item-unit" data-id="${item.id}" value="${escapeHtml(item.unit || "")}" placeholder="e.g. /Slide or /hr">
       </div>
     `;
 
@@ -572,8 +976,6 @@ function renderFormItems() {
       if (e.target.classList.contains("item-qty")) item.qty = parseFloat(e.target.value) || 0;
       if (e.target.classList.contains("item-price")) item.price = parseFloat(e.target.value) || 0;
       if (e.target.classList.contains("item-unit")) item.unit = e.target.value;
-      if (e.target.classList.contains("item-gst")) item.gst = parseFloat(e.target.value) || 0;
-
       updateLivePreview();
     });
   });
@@ -688,7 +1090,7 @@ function updateLivePreview() {
     // Format price column with unit e.g., "200.00/Slide"
     const formattedPrice = `${formatNumber(item.price)}${item.unit || ""}`;
     const formattedAmount = formatNumber(rowAmount);
-    const formattedGst = formatNumber(item.gst || 0);
+    const formattedGst = formatNumber(rowAmount * (state.gstRate || 0) / 100);
 
     tr.innerHTML = `
       <td class="col-desc">${escapeHtml(item.description)}</td>
@@ -703,13 +1105,18 @@ function updateLivePreview() {
   // Calculate Totals
   const code = state.currency === "INR" ? "INR" : "USD";
   const symbol = code === "INR" ? "₹" : "$";
-  const gstTotal = state.gstTotal !== undefined && state.gstTotal !== 0 ? state.gstTotal : state.items.reduce((sum, item) => sum + (item.gst || 0), 0);
-  const revision = state.revisionCharges || 0;
-  const grandTotal = subtotal + gstTotal + revision;
+  const gstTotal = subtotal * (state.gstRate || 0) / 100;
+  const revision = state.revisionEnabled === false ? 0 : state.revisionCharges || 0;
+  const discount = state.discountEnabled === false ? 0 : state.discountAmount || 0;
+  const grandTotal = subtotal + gstTotal + revision - discount;
 
   document.getElementById("doc-subtotal").textContent = `${symbol}${formatNumber(subtotal)}`;
-  document.getElementById("doc-gst").textContent = `${symbol}${formatNumber(gstTotal)}`;
+  document.getElementById("doc-gst").textContent = `${symbol}${formatNumber(gstTotal)} (${formatNumber(state.gstRate || 0)}%)`;
+  document.getElementById("doc-revision-label").textContent = state.revisionChargesLabel || "Charges";
   document.getElementById("doc-revision").textContent = `${symbol}${formatNumber(revision)}`;
+  document.getElementById("doc-discount").textContent = `${discount > 0 ? "-" : ""}${symbol}${formatNumber(discount)}`;
+  document.getElementById("doc-revision-row").hidden = state.revisionEnabled === false;
+  document.getElementById("doc-discount-row").hidden = state.discountEnabled === false;
   document.getElementById("doc-grand-total").textContent = `${formatNumber(grandTotal)} ${code}`;
 }
 
@@ -759,8 +1166,22 @@ function renderQRCode(text) {
  * Handle Download PDF using html2pdf.js
  */
 function handleDownloadPDF() {
+  if (!validateInvoiceNumber()) {
+    document.getElementById("invoice-number").reportValidity();
+    return;
+  }
+  if (isInvoiceGenerating) return;
+  if (!window.html2pdf) {
+    handlePrintInvoice();
+    return;
+  }
+
+  const historyEntry = createInvoiceHistoryEntry();
+  if (!persistInvoiceHistory([...invoiceHistory, historyEntry])) return;
+
+  isInvoiceGenerating = true;
   const element = document.getElementById("invoice-document");
-  const filename = `Invoice_${(state.invoiceNumber || "00000").replace(/[^a-zA-Z0-9]/g, "")}.pdf`;
+  const filename = `Invoice_${state.invoiceNumber.replace(/[^a-zA-Z0-9]/g, "")}.pdf`;
 
   // Temporary zoom reset for pristine capture
   const prevZoom = currentZoom;
@@ -787,22 +1208,29 @@ function handleDownloadPDF() {
   // Improve page-break handling to avoid an empty final page
   opt.pagebreak = { mode: ["css", "legacy"] };
 
-  if (window.html2pdf) {
-    // Force the full A4 layout even when the screen is narrow (mobile styles shrink the document)
-    element.classList.add("pdf-export");
-    window.html2pdf().set(opt).from(element).save()
-      .catch((error) => {
-        console.error("PDF export failed.", error);
-        window.alert("The PDF could not be created. Try again, or use Print instead.");
-      })
-      .finally(() => {
-        element.classList.remove("pdf-export");
-        setZoom(prevZoom);
-      });
-  } else {
-    // Print fallback if library fails to load
-    window.print();
+  const finishGeneration = (error) => {
+    if (error) {
+      console.error("Unable to generate invoice PDF.", error);
+      persistInvoiceHistory(invoiceHistory.filter((entry) => entry !== historyEntry));
+      setInvoiceNumberStatus("The PDF could not be generated. Try again; this invoice number remains available.", true);
+    }
+  };
+
+  element.classList.add("pdf-export");
+  try {
+    window.html2pdf().set(opt).from(element).save().then(
+      () => finishGeneration(),
+      (error) => finishGeneration(error)
+    ).finally(() => {
+      element.classList.remove("pdf-export");
+      setZoom(prevZoom);
+      isInvoiceGenerating = false;
+    });
+  } catch (error) {
+    finishGeneration(error);
+    element.classList.remove("pdf-export");
     setZoom(prevZoom);
+    isInvoiceGenerating = false;
   }
 }
 
@@ -812,9 +1240,12 @@ function handleDownloadPDF() {
 function handleResetSample() {
   state = JSON.parse(JSON.stringify(initialInvoiceState));
   document.getElementById("company-profile").value = "";
+  document.getElementById("client-profile").value = "";
   updateCompanyNameVisibility();
   syncFormInputs();
+  updateClientNameVisibility();
   updatePaymentFieldsVisibility();
+  updateChargeFieldsVisibility();
   document.getElementById("qr-image-upload").value = "";
   document.getElementById("remove-qr-image-btn").style.display = "none";
   renderFormItems();

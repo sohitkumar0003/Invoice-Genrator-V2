@@ -190,15 +190,54 @@ body {
 }
 
 .company-settings-dialog {
-  width: min(760px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  margin: auto;
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  margin: 0;
   padding: 0;
   color: var(--text-main);
   background: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   box-shadow: var(--shadow-card);
+}
+
+.company-settings-dialog:not([open]) {
+  display: none;
+}
+
+.company-settings-dialog[open] {
+  animation: settings-drawer-in 240ms ease-out both;
+}
+
+.company-settings-dialog[open].closing {
+  animation: settings-drawer-out 240ms ease-in both;
+  pointer-events: none;
+}
+
+@keyframes settings-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes settings-drawer-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .company-settings-dialog::backdrop {
@@ -207,6 +246,9 @@ body {
 }
 
 .settings-dialog-header {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -226,16 +268,65 @@ body {
 }
 
 .settings-dialog-content {
-  display: grid;
-  grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
-  gap: 20px;
-  max-height: calc(100vh - 112px);
+  display: block;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px 24px 24px;
 }
 
+.settings-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-tab {
+  padding: 9px 16px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-tab:hover {
+  color: var(--text-main);
+  background: var(--bg-card);
+}
+
+.settings-tab.active {
+  color: var(--text-main);
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.seller-settings-panel,
+.client-profiles-manager {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
+  gap: 20px;
+}
+
 .saved-companies-section,
 .company-profile-form {
+  min-width: 0;
+}
+
+.client-profiles-manager {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.85fr) minmax(0, 1.15fr);
+  gap: 20px;
+}
+
+.saved-clients-section,
+.client-profile-form {
   min-width: 0;
 }
 
@@ -248,7 +339,8 @@ body {
 }
 
 .settings-section-heading h3,
-.company-profile-form h3 {
+.company-profile-form h3,
+.client-profile-form h3 {
   font-size: 0.9rem;
 }
 
@@ -299,7 +391,8 @@ body {
   line-height: 1.5;
 }
 
-.company-profile-form {
+.company-profile-form,
+.client-profile-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -323,6 +416,57 @@ body {
 }
 
 .company-settings-status.error {
+  color: var(--accent-danger);
+}
+
+.settings-panel-description {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.invoice-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invoice-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+}
+
+.invoice-history-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.invoice-history-details span,
+.invoice-history-details time {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.invoice-history-row > strong {
+  flex-shrink: 0;
+}
+
+.invoice-number-status {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.invoice-number-status.error {
   color: var(--accent-danger);
 }
 
@@ -450,6 +594,66 @@ body {
   flex-direction: column;
   gap: 12px;
   border-top: 1px solid var(--border-color);
+}
+
+.charge-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 8px 12px;
+  color: var(--text-main);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.charge-toggle input {
+  position: absolute;
+  right: 12px;
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-switch {
+  width: 40px;
+  height: 24px;
+  padding: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+
+.toggle-switch::after {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  content: "";
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.charge-toggle input:checked + .toggle-switch {
+  background: var(--accent-primary);
+}
+
+.charge-toggle input:checked + .toggle-switch::after {
+  background: #fff;
+  transform: translateX(16px);
+}
+
+.charge-toggle input:focus-visible + .toggle-switch {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 /* FORM CONTROLS */
@@ -1052,9 +1256,38 @@ textarea {
   }
 
   .settings-dialog-content {
+    padding: 16px;
+  }
+
+  .company-settings-dialog {
+    width: 100vw;
+    border-radius: 0;
+  }
+
+  .seller-settings-panel,
+  .client-profiles-manager {
     grid-template-columns: 1fr;
     gap: 16px;
-    padding: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .company-settings-dialog[open] {
+      animation-duration: 1ms;
+    }
+
+    .company-settings-dialog[open].closing {
+      animation-duration: 1ms;
+    }
+  }
+
+  .settings-tabs {
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .settings-tab {
+    padding: 8px 10px;
+    white-space: nowrap;
   }
 
   .settings-dialog-header {

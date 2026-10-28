@@ -45,7 +45,7 @@
         <button id="print-btn" class="btn btn-secondary" title="Print document">
           <i data-lucide="printer"></i> Print
         </button>
-        <button id="company-settings-btn" class="btn btn-secondary" title="Manage company profiles">
+        <button id="company-settings-btn" class="btn btn-secondary" title="Manage seller and client profiles">
           <i data-lucide="settings"></i> Settings
         </button>
         <button id="download-pdf-btn" class="btn btn-primary" title="Export as PDF">
@@ -73,7 +73,8 @@
               <div class="form-row">
                 <div class="form-group">
                   <label for="invoice-number">Invoice Number</label>
-                  <input type="text" id="invoice-number" placeholder="e.g. #INV-00102">
+                  <input type="text" id="invoice-number" required placeholder="e.g. #INV-00102">
+                  <div id="invoice-number-status" class="invoice-number-status" role="status" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
                   <label for="invoice-date">Invoice Date</label>
@@ -106,11 +107,14 @@
             </summary>
             <div class="section-body">
               <div class="form-group">
-                <label for="company-profile">Full Name / Organization</label>
+                <label for="company-profile">Select Seller</label>
                 <select id="company-profile">
                   <option value="">Manual entry</option>
                 </select>
-                <input type="text" id="seller-name" aria-label="Full Name / Organization" placeholder="e.g. ALEX RIVERA">
+              </div>
+              <div class="form-group">
+                <label for="seller-name">Seller Name / Organization</label>
+                <input type="text" id="seller-name" placeholder="e.g. ALEX RIVERA" autocomplete="organization">
               </div>
               <div class="form-group">
                 <label for="seller-address">Address (Line 1 & 2)</label>
@@ -178,8 +182,14 @@
             </summary>
             <div class="section-body">
               <div class="form-group">
+                <label for="client-profile">Select Client</label>
+                <select id="client-profile">
+                  <option value="">Manual entry</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="client-name">Company / Client Name</label>
-                <input type="text" id="client-name" placeholder="e.g. Acme Global Solutions LLC">
+                <input type="text" id="client-name" placeholder="e.g. Acme Global Solutions LLC" autocomplete="organization">
               </div>
               <div class="form-group">
                 <label for="client-address">Client Address</label>
@@ -221,12 +231,36 @@
             <div class="section-body">
               <div class="form-row">
                 <div class="form-group">
-                  <label for="gst-amount">GST Total (Custom or Auto)</label>
-                  <input type="number" step="0.01" id="gst-amount" placeholder="0.00">
+                  <label for="gst-rate">GST Rate (%)</label>
+                  <input type="number" min="0" step="0.01" id="gst-rate" placeholder="0.00">
                 </div>
+              </div>
+              <label class="charge-toggle">
+                <span>Charges</span>
+                <input type="checkbox" id="revision-enabled" checked>
+                <span class="toggle-switch" aria-hidden="true"></span>
+              </label>
+              <div id="revision-fields">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="revision-charges-label">Label</label>
+                    <input type="text" id="revision-charges-label" placeholder="Charges">
+                  </div>
+                  <div class="form-group">
+                    <label for="revision-charges">Amount</label>
+                    <input type="number" step="0.01" id="revision-charges" placeholder="0.00">
+                  </div>
+                </div>
+              </div>
+              <label class="charge-toggle">
+                <span>Discount</span>
+                <input type="checkbox" id="discount-enabled" checked>
+                <span class="toggle-switch" aria-hidden="true"></span>
+              </label>
+              <div id="discount-fields">
                 <div class="form-group">
-                  <label for="revision-charges">Revision Charges</label>
-                  <input type="number" step="0.01" id="revision-charges" placeholder="0.00">
+                  <label for="discount-amount">Discount Amount</label>
+                  <input type="number" min="0" step="0.01" id="discount-amount" placeholder="0.00">
                 </div>
               </div>
             </div>
@@ -322,9 +356,13 @@
                   <span class="summary-label">GST:</span>
                   <span class="summary-value" id="doc-gst">₹0.00</span>
                 </div>
-                <div class="summary-row">
-                  <span class="summary-label">Revision Charges:</span>
+                <div class="summary-row" id="doc-revision-row">
+                  <span class="summary-label" id="doc-revision-label">Charges</span>
                   <span class="summary-value" id="doc-revision">₹0.00</span>
+                </div>
+                <div class="summary-row" id="doc-discount-row">
+                  <span class="summary-label">Discount:</span>
+                  <span class="summary-value" id="doc-discount">₹0.00</span>
                 </div>
                 <div class="summary-divider"></div>
                 <div class="summary-row total-row">
@@ -349,25 +387,31 @@
   <dialog id="company-settings-dialog" class="company-settings-dialog">
     <div class="settings-dialog-header">
       <div>
-        <h2>Company Profiles</h2>
-        <p>Save seller and payment details to reuse on future invoices.</p>
+        <h2>Settings</h2>
+        <p>Manage seller profiles, clients, and generated invoice history.</p>
       </div>
       <button id="close-company-settings-btn" class="icon-btn" type="button" aria-label="Close company settings">
         <i data-lucide="x"></i>
       </button>
     </div>
     <div class="settings-dialog-content">
-      <section class="saved-companies-section">
+      <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
+        <button id="seller-settings-tab" class="settings-tab active" type="button" role="tab" aria-selected="true" aria-controls="seller-settings-panel">Seller</button>
+        <button id="client-settings-tab" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="client-settings-panel">Client</button>
+        <button id="history-settings-tab" class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="history-settings-panel">Invoice History</button>
+      </nav>
+      <section id="seller-settings-panel" class="settings-panel seller-settings-panel" role="tabpanel" aria-labelledby="seller-settings-tab">
+        <section class="saved-companies-section">
         <div class="settings-section-heading">
-          <h3>Saved companies</h3>
+          <h3>Saved sellers</h3>
           <button id="add-company-btn" class="btn btn-secondary" type="button">
-            <i data-lucide="plus"></i> Add Company
+            <i data-lucide="plus"></i> Add Seller
           </button>
         </div>
         <div id="company-profiles-list" class="company-profiles-list"></div>
-      </section>
-      <form id="company-profile-form" class="company-profile-form">
-        <h3 id="company-form-title">Add a company</h3>
+        </section>
+        <form id="company-profile-form" class="company-profile-form">
+        <h3 id="company-form-title">Add a seller</h3>
         <input type="hidden" id="company-edit-id">
         <div class="form-group">
           <label for="company-name">Full Name / Organization</label>
@@ -426,9 +470,58 @@
         <div id="company-settings-status" class="company-settings-status" role="status" aria-live="polite"></div>
         <div class="company-form-actions">
           <button id="cancel-company-edit-btn" class="btn btn-secondary" type="button">Cancel</button>
-          <button class="btn btn-primary" type="submit">Save Company</button>
+          <button class="btn btn-primary" type="submit">Save Seller</button>
         </div>
-      </form>
+        </form>
+      </section>
+      <section id="client-settings-panel" class="settings-panel client-profiles-manager" role="tabpanel" aria-labelledby="client-settings-tab" hidden>
+        <section class="saved-clients-section">
+          <div class="settings-section-heading">
+            <h3>Saved clients</h3>
+            <button id="add-client-btn" class="btn btn-secondary" type="button">
+              <i data-lucide="plus"></i> Add Client
+            </button>
+          </div>
+          <div id="client-profiles-list" class="company-profiles-list"></div>
+        </section>
+        <form id="client-profile-form" class="client-profile-form">
+          <h3 id="client-form-title">Add a client</h3>
+          <input type="hidden" id="client-edit-id">
+          <div class="form-group">
+            <label for="saved-client-name">Company / Client Name</label>
+            <input type="text" id="saved-client-name" required placeholder="e.g. Acme Global Solutions LLC">
+          </div>
+          <div class="form-group">
+            <label for="saved-client-address">Client Address</label>
+            <textarea id="saved-client-address" rows="2" placeholder="Client address"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="saved-client-email">Client Email</label>
+              <input type="email" id="saved-client-email" placeholder="billing@example.com">
+            </div>
+            <div class="form-group">
+              <label for="saved-client-phone">Client Phone(s)</label>
+              <input type="text" id="saved-client-phone" placeholder="+1 (555) 012-3456">
+            </div>
+          </div>
+          <div id="client-settings-status" class="company-settings-status" role="status" aria-live="polite"></div>
+          <div class="company-form-actions">
+            <button id="cancel-client-edit-btn" class="btn btn-secondary" type="button">Cancel</button>
+            <button class="btn btn-primary" type="submit">Save Client</button>
+          </div>
+        </form>
+      </section>
+      <section id="history-settings-panel" class="settings-panel history-settings-panel" role="tabpanel" aria-labelledby="history-settings-tab" hidden>
+        <div class="settings-section-heading">
+          <div>
+            <h3>Generated invoices</h3>
+            <p class="settings-panel-description">Invoice numbers are recorded here and cannot be reused.</p>
+          </div>
+        </div>
+        <div id="invoice-history-status" class="company-settings-status" role="status" aria-live="polite"></div>
+        <div id="invoice-history-list" class="invoice-history-list"></div>
+      </section>
     </div>
   </dialog>
 

@@ -1003,25 +1003,27 @@ textarea {
 }
 
 .invoice-meta {
-  text-align: right;
   display: flex;
-  align-items: center;
-  gap: 24px;
-  margin-top: 4px;
+  align-items: baseline;
+  gap: 6px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .meta-label {
   font-size: 14px;
   font-weight: 400;
-  color: var(--invoice-text-muted);
+  color: var(--invoice-text-dim);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .meta-value {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
-  color: var(--invoice-text);
+  color: var(--invoice-text-dim);
+  white-space: nowrap;
 }
 
 /* TABLE STYLES */
@@ -1101,7 +1103,12 @@ textarea {
   position: absolute;
   bottom: 48px;
   left: 64px;
+  right: 64px;
   z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .footer-portfolio a {

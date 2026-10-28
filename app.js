@@ -42,6 +42,7 @@ const initialInvoiceState = {
   revisionCharges: 0.00,
   revisionChargesLabel: "Charges",
   discountAmount: 0.00,
+  discountType: "amount",
   revisionEnabled: true,
   discountEnabled: true
 };
@@ -76,6 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Bind Form Inputs
   bindFormInputs();
+  updateDiscountInputLabel();
   validateInvoiceNumber();
   updatePaymentFieldsVisibility();
   updateChargeFieldsVisibility();
@@ -134,6 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("discount-enabled").addEventListener("change", (event) => {
     state.discountEnabled = event.target.checked;
     updateChargeFieldsVisibility();
+    updateLivePreview();
+  });
+  document.getElementById("discount-type").addEventListener("change", (event) => {
+    state.discountType = event.target.value;
+    updateDiscountInputLabel();
     updateLivePreview();
   });
 
@@ -209,6 +216,7 @@ const FORM_INPUTS = [
     { id: "client-phone", key: "clientPhone" },
     { id: "revision-charges-label", key: "revisionChargesLabel" },
     { id: "discount-amount", key: "discountAmount", isNumber: true },
+    { id: "discount-type", key: "discountType" },
     { id: "invoice-number", key: "invoiceNumber" },
     { id: "invoice-date", key: "invoiceDate" },
     { id: "currency", key: "currency" },
@@ -635,7 +643,7 @@ function createInvoiceHistoryEntry() {
   const subtotal = state.items.reduce((sum, item) => sum + item.qty * item.price, 0);
   const gst = subtotal * (state.gstRate || 0) / 100;
   const charges = state.revisionEnabled === false ? 0 : state.revisionCharges || 0;
-  const discount = state.discountEnabled === false ? 0 : state.discountAmount || 0;
+  const discount = calculateDiscountAmount(subtotal);
   const currency = state.currency === "INR" ? "INR" : "USD";
 
   return {
@@ -901,6 +909,20 @@ function updateChargeFieldsVisibility() {
   document.getElementById("discount-fields").hidden = !discountEnabled;
 }
 
+function updateDiscountInputLabel() {
+  const isPercentage = state.discountType === "percentage";
+  document.getElementById("discount-amount-label").textContent = isPercentage
+    ? "Discount Percentage (%)"
+    : "Discount Amount";
+  document.getElementById("discount-amount").placeholder = isPercentage ? "0" : "0.00";
+}
+
+function calculateDiscountAmount(subtotal) {
+  if (state.discountEnabled === false) return 0;
+  const value = Math.max(0, state.discountAmount || 0);
+  return state.discountType === "percentage" ? subtotal * value / 100 : value;
+}
+
 /**
  * Render Item Form Editor Cards in Left Pane
  */
@@ -1031,11 +1053,13 @@ function updateLivePreview() {
   if (portfolioLink && portfolioContainer) {
     const rawUrl = (state.portfolioUrl || "").trim();
     if (rawUrl) {
-      portfolioContainer.style.display = "block";
+      portfolioContainer.style.display = "flex";
+      portfolioLink.hidden = false;
       portfolioLink.textContent = rawUrl;
       portfolioLink.href = rawUrl.startsWith("http://") || rawUrl.startsWith("https://") ? rawUrl : `https://${rawUrl}`;
     } else {
-      portfolioContainer.style.display = "none";
+      portfolioContainer.style.display = "flex";
+      portfolioLink.hidden = true;
     }
   }
 
@@ -1107,7 +1131,7 @@ function updateLivePreview() {
   const symbol = code === "INR" ? "₹" : "$";
   const gstTotal = subtotal * (state.gstRate || 0) / 100;
   const revision = state.revisionEnabled === false ? 0 : state.revisionCharges || 0;
-  const discount = state.discountEnabled === false ? 0 : state.discountAmount || 0;
+  const discount = calculateDiscountAmount(subtotal);
   const grandTotal = subtotal + gstTotal + revision - discount;
 
   document.getElementById("doc-subtotal").textContent = `${symbol}${formatNumber(subtotal)}`;
@@ -1115,6 +1139,8 @@ function updateLivePreview() {
   document.getElementById("doc-revision-label").textContent = state.revisionChargesLabel || "Charges";
   document.getElementById("doc-revision").textContent = `${symbol}${formatNumber(revision)}`;
   document.getElementById("doc-discount").textContent = `${discount > 0 ? "-" : ""}${symbol}${formatNumber(discount)}`;
+  document.querySelector("#doc-discount-row .summary-label").textContent =
+    state.discountType === "percentage" ? `Discount (${formatNumber(state.discountAmount || 0)}%):` : "Discount:";
   document.getElementById("doc-revision-row").hidden = state.revisionEnabled === false;
   document.getElementById("doc-discount-row").hidden = state.discountEnabled === false;
   document.getElementById("doc-grand-total").textContent = `${formatNumber(grandTotal)} ${code}`;
@@ -1246,6 +1272,7 @@ function handleResetSample() {
   updateClientNameVisibility();
   updatePaymentFieldsVisibility();
   updateChargeFieldsVisibility();
+  updateDiscountInputLabel();
   document.getElementById("qr-image-upload").value = "";
   document.getElementById("remove-qr-image-btn").style.display = "none";
   renderFormItems();

@@ -258,9 +258,18 @@
                 <span class="toggle-switch" aria-hidden="true"></span>
               </label>
               <div id="discount-fields">
-                <div class="form-group">
-                  <label for="discount-amount">Discount Amount</label>
-                  <input type="number" min="0" step="0.01" id="discount-amount" placeholder="0.00">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="discount-type">Discount Type</label>
+                    <select id="discount-type">
+                      <option value="amount">Amount</option>
+                      <option value="percentage">Percentage (%)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="discount-amount" id="discount-amount-label">Discount Amount</label>
+                    <input type="number" min="0" step="0.01" id="discount-amount" placeholder="0.00">
+                  </div>
                 </div>
               </div>
             </div>
@@ -321,10 +330,6 @@
                 <div class="client-email" id="doc-client-email">info@primetoolsindia.com</div>
                 <div class="client-phone" id="doc-client-phone">+91-9310015460, 9871915460</div>
               </div>
-              <div class="invoice-meta">
-                <div class="meta-label">INVOICE DATE:</div>
-                <div class="meta-value" id="doc-invoice-date">03 Aug 2026</div>
-              </div>
             </div>
 
             <!-- TABLE OF ITEMS -->
@@ -375,6 +380,9 @@
             <!-- PINNED PAGE FOOTER: PORTFOLIO HYPERLINK -->
             <div class="footer-portfolio" id="doc-footer-portfolio">
               <a id="doc-portfolio-link" href="https://iamsohit.framer.ai" target="_blank" rel="noopener">iamsohit.framer.ai</a>
+              <div class="invoice-meta">
+                <div class="meta-value" id="doc-invoice-date">03 Aug 2026</div>
+              </div>
             </div>
             
 
